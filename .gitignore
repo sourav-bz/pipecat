@@ -5,6 +5,7 @@ __pycache__/
 venv
 .venv
 myenv
+tests-local/
 #*#
 
 # Distribution / packaging

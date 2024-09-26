@@ -7,24 +7,29 @@
 import asyncio
 import io
 import wave
+import time
+import json
+from loguru import logger
 
 from typing import Awaitable, Callable
 from pydantic.main import BaseModel
 
 from pipecat.frames.frames import (
     AudioRawFrame,
+    TextFrame,
+    TranscriptionFrame,
     CancelFrame,
     EndFrame,
     InputAudioRawFrame,
     StartFrame,
+    Frame,  # Change BaseFrame to Frame
+    InterimTranscriptionFrame,  # Add this import
 )
 from pipecat.serializers.base_serializer import FrameSerializer
 from pipecat.serializers.protobuf import ProtobufFrameSerializer
 from pipecat.transports.base_input import BaseInputTransport
 from pipecat.transports.base_output import BaseOutputTransport
 from pipecat.transports.base_transport import BaseTransport, TransportParams
-
-from loguru import logger
 
 try:
     import websockets
@@ -127,9 +132,7 @@ class WebsocketServerOutputTransport(BaseOutputTransport):
         super().__init__(params, **kwargs)
 
         self._params = params
-
         self._websocket: websockets.WebSocketServerProtocol | None = None
-
         self._websocket_audio_buffer = bytes()
 
     async def set_client_connection(self, websocket: websockets.WebSocketServerProtocol | None):
@@ -171,6 +174,19 @@ class WebsocketServerOutputTransport(BaseOutputTransport):
             self._websocket_audio_buffer = self._websocket_audio_buffer[
                 self._params.audio_frame_size :
             ]
+
+    async def send_transcript_and_response(self, transcript: str, llm_response: str):
+        if not self._websocket:
+            return
+
+        message = {
+            "type": "transcript_and_response",
+            "transcript": transcript,
+            "llm_response": llm_response,
+            "timestamp": int(time.time() * 1000),
+        }
+        logger.info(f"Sending transcription message: {message}")
+        await self._websocket.send(json.dumps(message))
 
 
 class WebsocketServerTransport(BaseTransport):

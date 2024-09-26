@@ -136,6 +136,7 @@ class DeepgramSTTService(STTService):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self._register_event_handler("on_transcription")
 
         self._live_options = live_options
 
@@ -211,11 +212,11 @@ class DeepgramSTTService(STTService):
         if len(transcript) > 0:
             await self.stop_ttfb_metrics()
             if is_final:
-                await self.push_frame(
-                    TranscriptionFrame(transcript, "", time_now_iso8601(), language)
-                )
+                frame = TranscriptionFrame(transcript, "", time_now_iso8601(), language)
+                await self.push_frame(frame)
+                await self._call_event_handler("on_transcription", frame)
                 await self.stop_processing_metrics()
             else:
-                await self.push_frame(
-                    InterimTranscriptionFrame(transcript, "", time_now_iso8601(), language)
-                )
+                frame = InterimTranscriptionFrame(transcript, "", time_now_iso8601(), language)
+                await self.push_frame(frame)
+                await self._call_event_handler("on_transcription", frame)

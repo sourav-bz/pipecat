@@ -110,6 +110,7 @@ class BaseOpenAILLMService(LLMService):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self._register_event_handler("on_response")
         self.set_model_name(model)
         self._client = self.create_client(api_key=api_key, base_url=base_url, **kwargs)
         self._frequency_penalty = params.frequency_penalty
@@ -301,7 +302,9 @@ class BaseOpenAILLMService(LLMService):
                     # Keep iterating through the response to collect all the argument fragments
                     arguments += tool_call.function.arguments
             elif chunk.choices[0].delta.content:
-                await self.push_frame(TextFrame(chunk.choices[0].delta.content))
+                text_frame = TextFrame(chunk.choices[0].delta.content)
+                await self.push_frame(text_frame)
+                await self._call_event_handler("on_response", text_frame)
 
         # if we got a function name and arguments, check to see if it's a function with
         # a registered handler. If so, run the registered callback, save the result to
